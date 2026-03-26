@@ -94,6 +94,8 @@ export default class App {
   private toolbarElm: Element;
   private menu: MenuItem[];
 
+  fileHandle: FileSystemFileHandle | null = null;
+
   constructor(root: Element) {
     this.version = import.meta.env.PROD
       ? import.meta.env.VITE_APP_VERSION
@@ -127,6 +129,11 @@ export default class App {
     this.updateLocalData();
 
     document.addEventListener('keydown', (e) => this.keydown(e), false);
+
+    window.addEventListener('beforeunload', (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      return 'ページを離れる';
+    });
   }
   /**
    * ファイルに関する設定(FileSettingView)の表示
@@ -221,7 +228,7 @@ export default class App {
     this.sub.hide();
     this.tabbar.status = 'blank';
   }
-  public save() {
+  public async save() {
     //const bom = new Uint8Array([0xef, 0xbb, 0xbf]);
     const unicodeArray: number[] = [];
     const oudiaString = this.data.saveAsOud('CloudDia ' + this.version);
@@ -231,16 +238,22 @@ export default class App {
     // Encodingはencoding.jsの力を借ります。
     const shiftJISArray = Encoding.convert(unicodeArray, 'SJIS', 'UNICODE');
     const shiftJISuInt8 = new Uint8Array(shiftJISArray);
-    const anchor = h('a', {
-      href: URL.createObjectURL(
-        new Blob([shiftJISuInt8], { type: 'text/plain' })
-      ),
-      download: this.data.railway.name + '.oud',
-      style: 'display: none',
-    }) as HTMLAnchorElement;
-    document.body.appendChild(anchor);
-    anchor.click();
-    document.body.removeChild(anchor);
+    if (this.fileHandle === null) {
+      const anchor = h('a', {
+        href: URL.createObjectURL(
+          new Blob([shiftJISuInt8], { type: 'text/plain' })
+        ),
+        download: this.data.railway.name + '.oud',
+        style: 'display: none',
+      }) as HTMLAnchorElement;
+      document.body.appendChild(anchor);
+      anchor.click();
+      document.body.removeChild(anchor);
+    } else {
+      const writable = await this.fileHandle.createWritable();
+      await writable.write(shiftJISuInt8);
+      await writable.close();
+    }
   }
   public loadOudia(oudstring: string, fileName: string): void {
     const parser = new DiagramParser();

@@ -1,5 +1,5 @@
 import App from '../App.js';
-import { createButton, createTextField, h } from '../Util.js';
+import { createButton, createTextField, Dialog, h } from '../Util.js';
 import View from './View.js';
 import { DiagramFile } from '../DiagramParser.js';
 
@@ -7,11 +7,45 @@ export default class StartView extends View {
   constructor(app: App) {
     super(app, 'Start');
     const fileSelector = h('input', { type: 'file', class: 'start-file' });
-    fileSelector.addEventListener('change', (e: Event) => {
+    fileSelector.addEventListener('change', async (e: Event) => {
       const target = e.currentTarget as HTMLInputElement;
       const files = target.files;
       if (files === null) return;
       this.loadLocalFile(files[0]);
+    });
+    const fileSelector2 = h('input', { type: 'file', class: 'start-file' });
+    fileSelector2.addEventListener('click', async (e: Event) => {
+      e.preventDefault()
+      if ((window as any).showOpenFilePicker) {
+        const fileHandles = (await (window as any).showOpenFilePicker({
+          description: ".oudファイルを選択してください。",
+          multiple: false
+        })) as FileSystemFileHandle[] | null;
+
+        const fileHandle = fileHandles?.[0];
+
+        if (fileHandle !== undefined) {
+          this.app.fileHandle = fileHandle;
+          const file = await fileHandle.getFile();
+          console.log(fileHandle)
+          if (file) this.loadLocalFile(file);
+        } else {
+          const dialog = new Dialog({
+            title: 'ファイル読み込みエラー',
+            message: '時刻表ファイルとして認識できませんでした。',
+            buttons: ['OK'],
+          });
+          dialog.show();
+        }
+
+      } else {
+        const dialog = new Dialog({
+          title: 'ファイル読み込みエラー',
+          message: '時刻表ファイルとして認識できませんでした。',
+          buttons: ['OK'],
+        });
+        dialog.show();
+      }
     });
     const createNewButton = createButton(
       '新規作成',
@@ -22,6 +56,11 @@ export default class StartView extends View {
       'div',
       { class: 'form-button form-button-fill start-file-button' },
       'ファイルを開く'
+    );
+    const fileSelectLabel2 = h(
+      'div',
+      { class: 'form-button form-button-fill start-file-button' },
+      '上書きモードで開く'
     );
     const urlField = createTextField(
       '',
@@ -42,6 +81,15 @@ export default class StartView extends View {
       h('label', { class: 'start-file-label' }, [
         fileSelectLabel,
         fileSelector,
+      ]),
+      h(
+        'div',
+        { class: 'start-drop-caption' },
+        'こまめにcmd+Sを押すように心がけてください。'
+      ),
+      h('label', { class: 'start-file-label' }, [
+        fileSelectLabel2,
+        fileSelector2,
       ]),
       h(
         'div',
